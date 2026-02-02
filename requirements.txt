@@ -1,0 +1,12 @@
+# Core dependencies for Egyptian ID OCR
+numpy<2
+opencv-python>=4.5.0
+Pillow>=9.0.0
+pytesseract>=0.3.10
+easyocr>=1.6.0
+rembg>=2.0.0
+
+# Optional: for future API deployment
+# fastapi>=0.95.0
+# uvicorn>=0.20.0
+# python-multipart>=0.0.6

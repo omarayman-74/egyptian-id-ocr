@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# Environment variables
+.env
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OCR output files
+moraaa.png
+newimg.png
+*.png
+!doc/*.png
+
+# Data
+data/input/*.jpg
+data/input/*.jpeg
+data/input/*.png
+data/output/*.json
+data/output/*.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
