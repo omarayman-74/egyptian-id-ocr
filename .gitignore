@@ -44,16 +44,11 @@ newimg.png
 *.png
 !doc/*.png
 
+# Binaries and Libraries
+*.dll
+*.exe
+tesseract/
+tessdata/
+
 # Data
-data/input/*.jpg
-data/input/*.jpeg
-data/input/*.png
-data/output/*.json
-data/output/*.csv
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Git
-.git/
+data/
