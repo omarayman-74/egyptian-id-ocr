@@ -9,7 +9,7 @@ import io
 from .utils import (
     clean_name, choose_address, to_western_digits, 
     arabic_words, extract_birthdate_from_id, clean_id,
-    ARABIC_DIGITS, PUN
+    remove_cross_line_duplicates, ARABIC_DIGITS, PUN
 )
 
 # Configuration
@@ -95,6 +95,8 @@ def process_image(image_bytes: bytes) -> dict:
             address_easyocr = ' '.join(d_text_region[2:]) if len(d_text_region) > 2 else ' '.join(d_text_region)
             
             address = choose_address(address_tesseract, address_easyocr)
+            # Remove cross-line duplicates
+            address = remove_cross_line_duplicates(address)
             
             data["first name"] = firstname
             data["seconed name"] = secondname
@@ -137,6 +139,8 @@ def process_image(image_bytes: bytes) -> dict:
                 data["seconed name"] = d[1] if len(d) > 1 else "0"
                 address_easyocr_loop = ' '.join(d[2:]) if len(d) > 2 else ' '.join(d)
                 data["address"] = choose_address(address_tesseract, address_easyocr_loop)
+                # Remove cross-line duplicates
+                data["address"] = remove_cross_line_duplicates(data["address"])
                 
             o_id = reader.readtext(unsharp_image, detail=0, text_threshold=0.27, width_ths=0.8, low_text=0.008)
             

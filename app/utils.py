@@ -36,7 +36,11 @@ def best_text(text_a: str, text_b: str) -> str:
 def sanitize_addr(sval: str) -> str:
     """Keep Arabic letters, digits and common separators; drop OCR garbage like > ؟ etc."""
     sval = (sval or "").replace('؟', ' ').replace('?', ' ').replace('>', ' ').replace('<', ' ')
+    # Remove English letters (a-z, A-Z)
+    sval = re.sub(r'[a-zA-Z]', ' ', sval)
+    # Remove common OCR artifacts and special characters, keep only Arabic, digits, spaces, and separators
     sval = re.sub(r'[^\u0600-\u06FF0-9٠-٩\s\-ـ]', ' ', sval)
+    # Remove excessive spaces
     sval = ' '.join(sval.split())
     return sval
 
@@ -65,9 +69,69 @@ def extract_longest_arabic_phrase(sval: str) -> str:
     phrases.sort(key=lambda p: (count_arabic_letters(p), len(p.split()), len(p)), reverse=True)
     return phrases[0]
 
+def extract_all_locality_parts(sval: str) -> str:
+    """Extract all Arabic locality parts (area, district, governorate) excluding standalone markers."""
+    sval = sanitize_addr(sval)
+    # Remove standalone markers (م, ق, ك) when they're followed by numbers
+    cleaned = re.sub(r'\b[مقك]\s*[\-ـ:]?\s*[0-9٠-٩]+', ' ', sval)
+    # Remove all remaining standalone numbers
+    cleaned = re.sub(r'\b[0-9٠-٩]+\b', ' ', cleaned)
+    # Remove standalone single letter markers that remain
+    cleaned = re.sub(r'\b[مقك]\b', ' ', cleaned)
+    # Clean up extra separators
+    cleaned = re.sub(r'[\-ـ]+', ' ', cleaned)
+    # Keep only Arabic letters and spaces
+    cleaned = re.sub(r'[^\u0600-\u06FF\s]', ' ', cleaned)
+    cleaned = ' '.join(cleaned.split())
+    return cleaned.strip()
+
+def extract_city_district(sval: str) -> str:
+    """Extract city/district/governorate name from address."""
+    known_cities = [
+        'اكتوبر', '6 اكتوبر', 'القاهرة', 'الجيزة', 'الاسكندرية', 'الاسماعيلية',
+        'بورسعيد', 'السويس', 'المنصورة', 'طنطا', 'الزقازيق', 'اسيوط', 'الفيوم',
+        'بنها', 'دمياط', 'اسوان', 'الاقصر', 'قنا', 'سوهاج', 'المنيا', 'كفر الشيخ',
+        'الدقهلية', 'الشرقية', 'الغربية', 'القليوبية', 'البحيرة', 'مطروح'
+    ]
+    sval = sanitize_addr(sval)
+    words = sval.split()
+    
+    # Look for known city names
+    for i, word in enumerate(words):
+        for city in known_cities:
+            if city in word or word in city:
+                # Return from this position to end
+                return ' '.join(words[i:])
+    
+    # If no known city found, return last 1-2 words
+    if len(words) >= 2:
+        return ' '.join(words[-2:])
+    elif len(words) == 1:
+        return words[0]
+    return ""
+
+def extract_area_name(sval: str, city: str) -> str:
+    """Extract area name (first part before city/markers)."""
+    sval = sanitize_addr(sval)
+    # Remove city name
+    if city:
+        sval = sval.replace(city, ' ')
+    # Remove markers and numbers
+    sval = re.sub(r'\b[مقك]\s*[\-ـ:]?\s*[0-9٠-٩]+', ' ', sval)
+    sval = re.sub(r'\b[0-9٠-٩]+\b', ' ', sval)
+    sval = re.sub(r'\b[مقك]\b', ' ', sval)
+    sval = re.sub(r'[\-ـ]+', ' ', sval)
+    sval = ' '.join(sval.split())
+    return sval.strip()
+
 def pick_locality(addr_t: str, addr_e: str) -> str:
     cands = []
     for s0 in [addr_t, addr_e]:
+        # Try to extract all locality parts (including governorate)
+        full_locality = extract_all_locality_parts(s0)
+        if full_locality:
+            cands.append(full_locality)
+        # Also try traditional methods as fallback
         cands.append(extract_locality_prefix(s0))
         cands.append(extract_longest_arabic_phrase(s0))
     cands = [c.strip() for c in cands if c and c.strip()]
@@ -125,8 +189,18 @@ def choose_address(addr_tesseract: str, addr_easyocr: str) -> str:
     addr_e = sanitize_addr(addr_easyocr)
     if not addr_t and not addr_e:
         return "0"
-    locality = pick_locality(addr_t, addr_e) or addr_t or addr_e
     
+    # Extract city/district from both sources
+    city_t = extract_city_district(addr_t)
+    city_e = extract_city_district(addr_e)
+    city = city_t if count_arabic_letters(city_t) >= count_arabic_letters(city_e) else city_e
+    
+    # Extract area name (without city)
+    area_t = extract_area_name(addr_t, city)
+    area_e = extract_area_name(addr_e, city)
+    area = area_t if count_arabic_letters(area_t) >= count_arabic_letters(area_e) else area_e
+    
+    # Support multiple marker types: م (meem), ق (qaf), ك (kaf)
     markers = {}
     possible_markers = ['م', 'ق', 'ك']
     
@@ -153,19 +227,95 @@ def choose_address(addr_tesseract: str, addr_easyocr: str) -> str:
         if best:
             markers[marker] = to_arabic_digits(best)
     
-    locality = ' '.join(locality.split())
-    
+    result = ""
     if len(markers) == 0:
-        return locality.strip() or (addr_e or addr_t)
+        result = f"{area} {city}".strip() or addr_e or addr_t
     elif len(markers) == 1:
         marker, number = list(markers.items())[0]
-        return f"{locality} {marker} {number}".strip()
+        result = f"{area} {marker} {number} {city}".strip()
     elif len(markers) == 2:
         items = list(markers.items())
-        return f"{locality} {items[0][0]} {items[0][1]} -{items[1][0]} {items[1][1]}".strip()
+        result = f"{area} {items[0][0]} {items[0][1]} -{items[1][0]} {items[1][1]} {city}".strip()
     else:
         marker_str = ' -'.join([f"{k} {v}" for k, v in markers.items()])
-        return f"{locality} {marker_str}".strip()
+        result = f"{area} {marker_str} {city}".strip()
+    
+    # Final cleanup: remove any remaining English letters or special characters
+    result = re.sub(r'[a-zA-Z]', '', result)
+    result = re.sub(r'[^\u0600-\u06FF0-9٠-٩\s\-ـ]', ' ', result)
+    result = ' '.join(result.split())
+    return result
+
+def remove_cross_line_duplicates(address: str) -> str:
+    """Remove duplicate words that appear in multiple parts of the address.
+    If a word appears in multiple parts, keep it only in the last occurrence."""
+    if not address or address == "0":
+        return address
+    
+    # Normalize: separate dashes and markers to ensure consistent tokenization
+    # Replace "-ق" with "- ق", etc.
+    normalized = address
+    for marker in ['م', 'ق', 'ك']:
+        normalized = normalized.replace(f'-{marker}', f'- {marker}')
+        normalized = normalized.replace(f'ـ{marker}', f'ـ {marker}')
+    
+    # Split by spaces
+    parts = re.split(r'\s+', normalized)
+    if len(parts) <= 1:
+        return address
+    
+    # Track words and marker+number combinations
+    word_positions = {}
+    i = 0
+    while i < len(parts):
+        word = parts[i]
+        
+        # Check if this token contains a marker+number combo (e.g., "م٢٦" or "ق٢٦")
+        marker_num_match = re.match(r'^([مقك])([0-9٠-٩]+)$', word)
+        if marker_num_match:
+            marker = marker_num_match.group(1)
+            number = marker_num_match.group(2)
+            combo = f"{marker} {number}"
+            if combo not in word_positions:
+                word_positions[combo] = []
+            word_positions[combo].append(i)
+            i += 1
+            continue
+        
+        # Check if this is a marker followed by a number in the next token
+        if word in ['م', 'ق', 'ك'] and i + 1 < len(parts) and re.match(r'^[0-9٠-٩]+$', parts[i + 1]):
+            combo = f"{word} {parts[i + 1]}"
+            if combo not in word_positions:
+                word_positions[combo] = []
+            word_positions[combo].append((i, i + 1))
+            i += 2
+            continue
+        
+        # Skip standalone markers, numbers, and separators
+        if word in ['م', 'ق', 'ك', '-', 'ـ'] or re.match(r'^[0-9٠-٩]+$', word):
+            i += 1
+            continue
+        
+        # Regular word
+        if word not in word_positions:
+            word_positions[word] = []
+        word_positions[word].append(i)
+        i += 1
+    
+    # Mark positions to remove (keep only the last occurrence of duplicates)
+    positions_to_remove = set()
+    for item, positions in word_positions.items():
+        if len(positions) > 1:
+            for pos in positions[:-1]:
+                if isinstance(pos, tuple):
+                    positions_to_remove.add(pos[0])
+                    positions_to_remove.add(pos[1])
+                else:
+                    positions_to_remove.add(pos)
+    
+    # Rebuild address without removed positions
+    cleaned_parts = [parts[i] for i in range(len(parts)) if i not in positions_to_remove]
+    return ' '.join(cleaned_parts)
 
 def extract_birthdate_from_id(id_value: str) -> str:
     digits = re.sub(r'\D', '', to_western_digits(str(id_value)))
