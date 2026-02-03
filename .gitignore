@@ -49,6 +49,13 @@ newimg.png
 *.exe
 tesseract/
 tessdata/
+data/input/
+data/output/
+.venv/
+env/
+venv/
+venv_ocr/
+tessdata/
 
 # Data
 data/
