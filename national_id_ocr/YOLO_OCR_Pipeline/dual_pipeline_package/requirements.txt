@@ -1,0 +1,9 @@
+opencv-python
+numpy
+pytesseract
+Pillow
+rembg
+easyocr
+ultralytics
+requests
+gradio
