@@ -43,15 +43,15 @@ If you provide the back of the ID, it extracts the **expiration date**.
 
 ## Extracted Fields
 
-| Field | Example |
-|-------|---------|
-| First Name |  |
-| Last Name | |
-| Address | |
-| National ID |  |
-| Date of Birth | |
-| Governorate |  |
-| Expiration Date | |
+| Field |  
+|-------|
+| First Name |  
+| Last Name | 
+| Address | 
+| National ID |  
+| Date of Birth | 
+| Governorate |  
+| Expiration Date | 
 
 ---
 
