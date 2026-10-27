@@ -45,13 +45,13 @@ If you provide the back of the ID, it extracts the **expiration date**.
 
 | Field | Example |
 |-------|---------|
-| First Name | محمد |
-| Last Name | أحمد عبد الله |
-| Address | القاهرة - مصر الجديدة |
-| National ID | 29901011234567 |
-| Date of Birth | 1999-01-01 |
-| Governorate | القاهرة |
-| Expiration Date | 2030-01-01 |
+| First Name |  |
+| Last Name | |
+| Address | |
+| National ID |  |
+| Date of Birth | |
+| Governorate |  |
+| Expiration Date | |
 
 ---
 
